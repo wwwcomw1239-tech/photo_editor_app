@@ -6,15 +6,12 @@
 // ============================================================
 
 import 'dart:typed_data';
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:screenshot/screenshot.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 
 void main() {
   runApp(const PhotoEditorApp());
@@ -46,13 +43,13 @@ enum FilterType {
 }
 
 const Map<FilterType, String> filterNames = {
-  FilterType.original: 'أصلي',
+  FilterType.original:      'أصلي',
   FilterType.blackAndWhite: 'أبيض وأسود',
-  FilterType.sepia: 'سيبيا',
-  FilterType.warm: 'دافئ',
-  FilterType.cool: 'بارد',
-  FilterType.highContrast: 'تباين عالٍ',
-  FilterType.fade: 'باهت',
+  FilterType.sepia:         'سيبيا',
+  FilterType.warm:          'دافئ',
+  FilterType.cool:          'بارد',
+  FilterType.highContrast:  'تباين عالٍ',
+  FilterType.fade:          'باهت',
 };
 
 const Map<FilterType, List<double>> filterMatrices = {
@@ -75,10 +72,10 @@ const Map<FilterType, List<double>> filterMatrices = {
     0,     0,     0,     1, 0,
   ],
   FilterType.warm: [
-    1.2, 0,   0,    0, 0,
-    0,   1.0, 0,    0, 0,
-    0,   0,   0.8,  0, 0,
-    0,   0,   0,    1, 0,
+    1.2, 0,   0,   0, 0,
+    0,   1.0, 0,   0, 0,
+    0,   0,   0.8, 0, 0,
+    0,   0,   0,   1, 0,
   ],
   FilterType.cool: [
     0.8, 0,   0,   0, 0,
@@ -101,18 +98,15 @@ const Map<FilterType, List<double>> filterMatrices = {
 };
 
 // ── ألوان التطبيق ──
-const Color kBackground   = Color(0xFF0D0D0D);
-const Color kSurface      = Color(0xFF1A1A1A);
-const Color kCard         = Color(0xFF242424);
-const Color kAccent       = Color(0xFFFF6B35);
-const Color kAccent2      = Color(0xFFFF9B71);
+const Color kBackground = Color(0xFF0D0D0D);
+const Color kSurface    = Color(0xFF1A1A1A);
+const Color kCard       = Color(0xFF242424);
+const Color kAccent     = Color(0xFFFF6B35);
+const Color kAccent2    = Color(0xFFFF9B71);
 
-// ════════════════════════════════════════════════════════════
-//  التطبيق الرئيسي
 // ════════════════════════════════════════════════════════════
 class PhotoEditorApp extends StatelessWidget {
   const PhotoEditorApp({super.key});
-
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -137,7 +131,6 @@ class PhotoEditorApp extends StatelessWidget {
           backgroundColor: kSurface,
           elevation: 0,
           titleTextStyle: TextStyle(
-            fontFamily: 'sans-serif',
             fontSize: 20,
             fontWeight: FontWeight.bold,
             color: Colors.white,
@@ -147,7 +140,7 @@ class PhotoEditorApp extends StatelessWidget {
           activeTrackColor: kAccent,
           thumbColor: kAccent,
           inactiveTrackColor: Colors.white12,
-          overlayColor: kAccent.withOpacity(0.2),
+          overlayColor: kAccent.withValues(alpha: 0.2),
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
@@ -165,55 +158,41 @@ class PhotoEditorApp extends StatelessWidget {
 }
 
 // ════════════════════════════════════════════════════════════
-//  الشاشة الرئيسية
-// ════════════════════════════════════════════════════════════
 class PhotoEditorHome extends StatefulWidget {
   const PhotoEditorHome({super.key});
-
   @override
   State<PhotoEditorHome> createState() => _PhotoEditorHomeState();
 }
 
-class _PhotoEditorHomeState extends State<PhotoEditorHome>
-    with SingleTickerProviderStateMixin {
-  // ── الحالة ──
+class _PhotoEditorHomeState extends State<PhotoEditorHome> {
   Uint8List? _imageBytes;
   FilterType _selectedFilter = FilterType.original;
   double _brightness = 0.0;
-  double _contrast  = 1.0;
+  double _contrast   = 1.0;
   final List<TextOverlay> _textOverlays = [];
-  int? _draggingIndex;
+  int _activeToolTab = 0;
 
-  final ImagePicker      _picker            = ImagePicker();
+  final ImagePicker          _picker         = ImagePicker();
   final ScreenshotController _screenshotCtrl = ScreenshotController();
 
-  // ── ToolTab ──
-  int _activeToolTab = 0; // 0=فلاتر  1=ضبط  2=نص
-
-  // ─────────────────────────────────────
-  //  اختيار الصورة
-  // ─────────────────────────────────────
+  // ── اختيار صورة ──
   Future<void> _pickImage() async {
-    final XFile? file =
-        await _picker.pickImage(source: ImageSource.gallery);
+    final XFile? file = await _picker.pickImage(source: ImageSource.gallery);
     if (file != null) {
       final bytes = await file.readAsBytes();
       setState(() {
-        _imageBytes = bytes;
-        _selectedFilter = FilterType.original;
-        _brightness = 0.0;
-        _contrast   = 1.0;
+        _imageBytes      = bytes;
+        _selectedFilter  = FilterType.original;
+        _brightness      = 0.0;
+        _contrast        = 1.0;
         _textOverlays.clear();
       });
     }
   }
 
-  // ─────────────────────────────────────
-  //  بناء مصفوفة اللون المركّبة
-  // ─────────────────────────────────────
+  // ── بناء فلتر اللون ──
   ColorFilter _buildColorFilter() {
     final base = filterMatrices[_selectedFilter]!;
-    // تطبيق السطوع والتباين فوق فلتر الألوان
     final double b = _brightness * 255;
     final double c = _contrast;
     return ColorFilter.matrix([
@@ -224,37 +203,10 @@ class _PhotoEditorHomeState extends State<PhotoEditorHome>
     ]);
   }
 
-  // ─────────────────────────────────────
-  //  حفظ / تصدير الصورة
-  // ─────────────────────────────────────
+  // ── حفظ الصورة ──
   Future<void> _saveImage() async {
     final bytes = await _screenshotCtrl.capture(pixelRatio: 3.0);
-    if (bytes == null) return;
-
-    // على الويب: تنزيل الملف مباشرة
-    // على Android/iOS: حفظ في Gallery عبر مشاركة
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('جارٍ حفظ الصورة...'),
-        backgroundColor: kAccent,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
-
-    // استخدام Share API لكلا المنصتين
-    try {
-      // نحاول عبر path_provider إذا كان متاحاً
-    } catch (_) {}
-
-    // للويب: نستخدم anchor download trick
-    await _downloadBytesWeb(bytes);
-  }
-
-  Future<void> _downloadBytesWeb(Uint8List bytes) async {
-    // طريقة عالمية: عرض الصورة في نافذة جديدة
-    if (!mounted) return;
+    if (bytes == null || !mounted) return;
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
@@ -279,19 +231,18 @@ class _PhotoEditorHomeState extends State<PhotoEditorHome>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('إغلاق', style: TextStyle(color: kAccent)),
+            child: const Text('إغلاق',
+                style: TextStyle(color: kAccent)),
           ),
         ],
       ),
     );
   }
 
-  // ─────────────────────────────────────
-  //  إضافة نص على الصورة
-  // ─────────────────────────────────────
+  // ── إضافة نص ──
   Future<void> _addTextDialog() async {
     String inputText = '';
-    Color textColor  = Colors.white;
+    Color  textColor = Colors.white;
     double fontSize  = 28;
 
     await showDialog(
@@ -299,7 +250,8 @@ class _PhotoEditorHomeState extends State<PhotoEditorHome>
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlgState) => AlertDialog(
           backgroundColor: kCard,
-          title: const Text('إضافة نص', style: TextStyle(color: Colors.white)),
+          title: const Text('إضافة نص',
+              style: TextStyle(color: Colors.white)),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -312,39 +264,53 @@ class _PhotoEditorHomeState extends State<PhotoEditorHome>
                     filled: true,
                     fillColor: kSurface,
                     border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide.none),
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide.none,
+                    ),
                   ),
                   onChanged: (v) => inputText = v,
                 ),
                 const SizedBox(height: 16),
                 Row(
                   children: [
-                    const Text('الحجم:', style: TextStyle(color: Colors.white70)),
+                    const Text('الحجم:',
+                        style: TextStyle(color: Colors.white70)),
                     Expanded(
                       child: Slider(
                         value: fontSize,
                         min: 12,
                         max: 80,
-                        onChanged: (v) => setDlgState(() => fontSize = v),
+                        onChanged: (v) =>
+                            setDlgState(() => fontSize = v),
                       ),
                     ),
                     Text(fontSize.toInt().toString(),
-                        style: const TextStyle(color: Colors.white)),
+                        style:
+                            const TextStyle(color: Colors.white)),
                   ],
                 ),
                 const SizedBox(height: 8),
-                const Text('اللون:', style: TextStyle(color: Colors.white70)),
+                const Align(
+                  alignment: Alignment.centerRight,
+                  child: Text('اللون:',
+                      style: TextStyle(color: Colors.white70)),
+                ),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
                   children: [
-                    Colors.white, Colors.black, kAccent,
-                    Colors.yellow, Colors.greenAccent, Colors.cyanAccent,
+                    Colors.white,
+                    Colors.black,
+                    kAccent,
+                    Colors.yellow,
+                    Colors.greenAccent,
+                    Colors.cyanAccent,
                   ].map((c) => GestureDetector(
-                    onTap: () => setDlgState(() => textColor = c),
+                    onTap: () =>
+                        setDlgState(() => textColor = c),
                     child: Container(
-                      width: 32, height: 32,
+                      width: 32,
+                      height: 32,
                       decoration: BoxDecoration(
                         color: c,
                         shape: BoxShape.circle,
@@ -364,16 +330,17 @@ class _PhotoEditorHomeState extends State<PhotoEditorHome>
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('إلغاء', style: TextStyle(color: Colors.white54)),
+              child: const Text('إلغاء',
+                  style: TextStyle(color: Colors.white54)),
             ),
             ElevatedButton(
               onPressed: () {
                 if (inputText.trim().isNotEmpty) {
                   setState(() {
                     _textOverlays.add(TextOverlay(
-                      text: inputText.trim(),
+                      text:     inputText.trim(),
                       position: const Offset(80, 80),
-                      color: textColor,
+                      color:    textColor,
                       fontSize: fontSize,
                     ));
                   });
@@ -388,9 +355,7 @@ class _PhotoEditorHomeState extends State<PhotoEditorHome>
     );
   }
 
-  // ─────────────────────────────────────
-  //  حوار معلومات المطور
-  // ─────────────────────────────────────
+  // ── حوار المطور ──
   void _showAboutDialog() {
     showDialog(
       context: context,
@@ -404,15 +369,16 @@ class _PhotoEditorHomeState extends State<PhotoEditorHome>
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: kAccent.withOpacity(0.5), width: 1),
+            border: Border.all(
+                color: kAccent.withValues(alpha: 0.5), width: 1),
           ),
           padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // أيقونة
               Container(
-                width: 72, height: 72,
+                width: 72,
+                height: 72,
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                       colors: [kAccent, kAccent2]),
@@ -429,12 +395,10 @@ class _PhotoEditorHomeState extends State<PhotoEditorHome>
                       fontWeight: FontWeight.bold)),
               const SizedBox(height: 4),
               const Text('الإصدار 2.0.0',
-                  style: TextStyle(color: Colors.white38, fontSize: 13)),
+                  style:
+                      TextStyle(color: Colors.white38, fontSize: 13)),
               const SizedBox(height: 20),
-              // معلومات المطور
-              _infoTile(
-                  Icons.person_rounded,
-                  'المطور',
+              _infoTile(Icons.person_rounded, 'المطور',
                   'داوود الأحمدي'),
               const SizedBox(height: 10),
               _infoTile(
@@ -443,13 +407,13 @@ class _PhotoEditorHomeState extends State<PhotoEditorHome>
                   'almubarmaj8@gmail.com',
                   isEmail: true),
               const SizedBox(height: 16),
-              // تحذير قانوني
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.1),
+                  color: Colors.red.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.red.withOpacity(0.3)),
+                  border: Border.all(
+                      color: Colors.red.withValues(alpha: 0.3)),
                 ),
                 child: const Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -488,7 +452,8 @@ class _PhotoEditorHomeState extends State<PhotoEditorHome>
   Widget _infoTile(IconData icon, String label, String value,
       {bool isEmail = false}) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding:
+          const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: kSurface,
         borderRadius: BorderRadius.circular(10),
@@ -507,15 +472,19 @@ class _PhotoEditorHomeState extends State<PhotoEditorHome>
                 const SizedBox(height: 2),
                 GestureDetector(
                   onTap: isEmail
-                      ? () => launchUrl(Uri.parse('mailto:$value'))
+                      ? () => launchUrl(
+                          Uri.parse('mailto:$value'))
                       : null,
-                  child: Text(value,
-                      style: TextStyle(
-                          color: isEmail ? kAccent2 : Colors.white,
-                          fontSize: 14,
-                          decoration: isEmail
-                              ? TextDecoration.underline
-                              : TextDecoration.none)),
+                  child: Text(
+                    value,
+                    style: TextStyle(
+                      color: isEmail ? kAccent2 : Colors.white,
+                      fontSize: 14,
+                      decoration: isEmail
+                          ? TextDecoration.underline
+                          : TextDecoration.none,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -523,10 +492,12 @@ class _PhotoEditorHomeState extends State<PhotoEditorHome>
           if (isEmail)
             GestureDetector(
               onTap: () {
-                Clipboard.setData(ClipboardData(text: value));
+                Clipboard.setData(
+                    ClipboardData(text: value));
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('تم نسخ البريد الإلكتروني'),
+                    content:
+                        Text('تم نسخ البريد الإلكتروني'),
                     duration: Duration(seconds: 2),
                   ),
                 );
@@ -540,8 +511,6 @@ class _PhotoEditorHomeState extends State<PhotoEditorHome>
   }
 
   // ════════════════════════════════════════════════════════════
-  //  بناء الواجهة
-  // ════════════════════════════════════════════════════════════
   @override
   Widget build(BuildContext context) {
     return Directionality(
@@ -551,11 +520,8 @@ class _PhotoEditorHomeState extends State<PhotoEditorHome>
         appBar: _buildAppBar(),
         body: Column(
           children: [
-            // ── منطقة معاينة الصورة ──
             Expanded(child: _buildImagePreview()),
-            // ── أدوات التحرير ──
             if (_imageBytes != null) ..._buildToolSection(),
-            // ── زر اختيار الصورة ──
             _buildPickButton(),
           ],
         ),
@@ -563,14 +529,14 @@ class _PhotoEditorHomeState extends State<PhotoEditorHome>
     );
   }
 
-  // ── AppBar ──
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
       backgroundColor: kSurface,
       title: Row(
         children: [
           Container(
-            width: 34, height: 34,
+            width: 34,
+            height: 34,
             decoration: BoxDecoration(
               gradient: const LinearGradient(
                   colors: [kAccent, kAccent2]),
@@ -600,7 +566,6 @@ class _PhotoEditorHomeState extends State<PhotoEditorHome>
     );
   }
 
-  // ── معاينة الصورة مع النصوص المتحركة ──
   Widget _buildImagePreview() {
     if (_imageBytes == null) {
       return Center(
@@ -608,13 +573,16 @@ class _PhotoEditorHomeState extends State<PhotoEditorHome>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 100, height: 100,
+              width: 100,
+              height: 100,
               decoration: BoxDecoration(
                 color: kCard,
                 borderRadius: BorderRadius.circular(24),
               ),
-              child: const Icon(Icons.add_photo_alternate_outlined,
-                  size: 50, color: Colors.white24),
+              child: const Icon(
+                  Icons.add_photo_alternate_outlined,
+                  size: 50,
+                  color: Colors.white24),
             ),
             const SizedBox(height: 20),
             const Text('اختر صورة للبدء',
@@ -623,8 +591,10 @@ class _PhotoEditorHomeState extends State<PhotoEditorHome>
                     fontSize: 18,
                     fontWeight: FontWeight.w300)),
             const SizedBox(height: 8),
-            const Text('اضغط على الزر أدناه لاختيار صورة من مكتبتك',
-                style: TextStyle(color: Colors.white24, fontSize: 13)),
+            const Text(
+                'اضغط على الزر أدناه لاختيار صورة من مكتبتك',
+                style:
+                    TextStyle(color: Colors.white24, fontSize: 13)),
           ],
         ),
       );
@@ -637,15 +607,11 @@ class _PhotoEditorHomeState extends State<PhotoEditorHome>
           Positioned.fill(
             child: ColorFiltered(
               colorFilter: _buildColorFilter(),
-              child: Image.memory(
-                _imageBytes!,
-                fit: BoxFit.contain,
-              ),
+              child: Image.memory(_imageBytes!, fit: BoxFit.contain),
             ),
           ),
-          // النصوص المتحركة
           ..._textOverlays.asMap().entries.map((e) {
-            final i = e.key;
+            final i       = e.key;
             final overlay = e.value;
             return Positioned(
               left: overlay.position.dx,
@@ -654,33 +620,19 @@ class _PhotoEditorHomeState extends State<PhotoEditorHome>
                 onPanUpdate: (d) => setState(() {
                   _textOverlays[i].position += d.delta;
                 }),
-                onLongPress: () => setState(() {
-                  _textOverlays.removeAt(i);
-                }),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      color: Colors.white24,
-                      style: _activeToolTab == 2
-                          ? BorderStyle.solid
-                          : BorderStyle.none,
-                    ),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    overlay.text,
-                    style: TextStyle(
-                      color: overlay.color,
-                      fontSize: overlay.fontSize,
-                      fontWeight: FontWeight.bold,
-                      shadows: const [
-                        Shadow(
-                            blurRadius: 4,
-                            color: Colors.black54)
-                      ],
-                    ),
+                onLongPress: () =>
+                    setState(() => _textOverlays.removeAt(i)),
+                child: Text(
+                  overlay.text,
+                  style: TextStyle(
+                    color:      overlay.color,
+                    fontSize:   overlay.fontSize,
+                    fontWeight: FontWeight.bold,
+                    shadows: const [
+                      Shadow(
+                          blurRadius: 4,
+                          color: Colors.black54)
+                    ],
                   ),
                 ),
               ),
@@ -691,10 +643,8 @@ class _PhotoEditorHomeState extends State<PhotoEditorHome>
     );
   }
 
-  // ── قسم الأدوات ──
   List<Widget> _buildToolSection() {
     return [
-      // تبويبات الأدوات
       Container(
         color: kSurface,
         child: Row(
@@ -705,17 +655,13 @@ class _PhotoEditorHomeState extends State<PhotoEditorHome>
           ],
         ),
       ),
-      // محتوى التبويب المختار
       Container(
         color: kCard,
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 250),
-          child: _activeToolTab == 0
-              ? _buildFiltersBar()
-              : _activeToolTab == 1
-                  ? _buildAdjustPanel()
-                  : _buildTextPanel(),
-        ),
+        child: _activeToolTab == 0
+            ? _buildFiltersBar()
+            : _activeToolTab == 1
+                ? _buildAdjustPanel()
+                : _buildTextPanel(),
       ),
     ];
   }
@@ -725,8 +671,7 @@ class _PhotoEditorHomeState extends State<PhotoEditorHome>
     return Expanded(
       child: GestureDetector(
         onTap: () => setState(() => _activeToolTab = index),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
+        child: Container(
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
             border: Border(
@@ -744,11 +689,12 @@ class _PhotoEditorHomeState extends State<PhotoEditorHome>
               const SizedBox(height: 4),
               Text(label,
                   style: TextStyle(
-                      color: active ? kAccent : Colors.white38,
-                      fontSize: 11,
-                      fontWeight: active
-                          ? FontWeight.bold
-                          : FontWeight.normal)),
+                    color: active ? kAccent : Colors.white38,
+                    fontSize: 11,
+                    fontWeight: active
+                        ? FontWeight.bold
+                        : FontWeight.normal,
+                  )),
             ],
           ),
         ),
@@ -756,11 +702,9 @@ class _PhotoEditorHomeState extends State<PhotoEditorHome>
     );
   }
 
-  // ── شريط الفلاتر الأفقي ──
   Widget _buildFiltersBar() {
     return SizedBox(
       height: 110,
-      key: const ValueKey('filters'),
       child: ListView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(
@@ -770,8 +714,7 @@ class _PhotoEditorHomeState extends State<PhotoEditorHome>
           return GestureDetector(
             onTap: () =>
                 setState(() => _selectedFilter = filter),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
+            child: Container(
               width: 75,
               margin: const EdgeInsets.only(left: 8),
               decoration: BoxDecoration(
@@ -833,10 +776,8 @@ class _PhotoEditorHomeState extends State<PhotoEditorHome>
     }
   }
 
-  // ── لوحة الضبط (سطوع / تباين) ──
   Widget _buildAdjustPanel() {
     return Padding(
-      key: const ValueKey('adjust'),
       padding: const EdgeInsets.symmetric(
           horizontal: 16, vertical: 12),
       child: Column(
@@ -849,10 +790,8 @@ class _PhotoEditorHomeState extends State<PhotoEditorHome>
             min: -0.5,
             max:  0.5,
             divisions: 100,
-            onChanged: (v) =>
-                setState(() => _brightness = v),
-            onReset: () =>
-                setState(() => _brightness = 0.0),
+            onChanged: (v) => setState(() => _brightness = v),
+            onReset:   () => setState(() => _brightness = 0.0),
           ),
           const SizedBox(height: 8),
           _sliderRow(
@@ -862,10 +801,8 @@ class _PhotoEditorHomeState extends State<PhotoEditorHome>
             min: 0.5,
             max: 2.0,
             divisions: 150,
-            onChanged: (v) =>
-                setState(() => _contrast = v),
-            onReset: () =>
-                setState(() => _contrast = 1.0),
+            onChanged: (v) => setState(() => _contrast = v),
+            onReset:   () => setState(() => _contrast = 1.0),
           ),
         ],
       ),
@@ -910,10 +847,8 @@ class _PhotoEditorHomeState extends State<PhotoEditorHome>
     );
   }
 
-  // ── لوحة النص ──
   Widget _buildTextPanel() {
     return Padding(
-      key: const ValueKey('text'),
       padding: const EdgeInsets.all(12),
       child: Row(
         children: [
@@ -923,27 +858,26 @@ class _PhotoEditorHomeState extends State<PhotoEditorHome>
               icon: const Icon(Icons.add_rounded),
               label: const Text('إضافة نص على الصورة'),
               style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 12),
               ),
             ),
           ),
-          if (_textOverlays.isNotEmpty) ...
-            [
-              const SizedBox(width: 10),
-              IconButton(
-                onPressed: () =>
-                    setState(() => _textOverlays.clear()),
-                icon: const Icon(Icons.delete_sweep_rounded,
-                    color: Colors.redAccent),
-                tooltip: 'حذف كل النصوص',
-              ),
-            ],
+          if (_textOverlays.isNotEmpty) ..[
+            const SizedBox(width: 10),
+            IconButton(
+              onPressed: () =>
+                  setState(() => _textOverlays.clear()),
+              icon: const Icon(Icons.delete_sweep_rounded,
+                  color: Colors.redAccent),
+              tooltip: 'حذف كل النصوص',
+            ),
+          ],
         ],
       ),
     );
   }
 
-  // ── زر اختيار الصورة ──
   Widget _buildPickButton() {
     return Container(
       width: double.infinity,
@@ -952,8 +886,9 @@ class _PhotoEditorHomeState extends State<PhotoEditorHome>
       child: ElevatedButton.icon(
         onPressed: _pickImage,
         icon: const Icon(Icons.photo_library_rounded),
-        label: Text(
-            _imageBytes == null ? 'اختر صورة من المكتبة' : 'تغيير الصورة'),
+        label: Text(_imageBytes == null
+            ? 'اختر صورة من المكتبة'
+            : 'تغيير الصورة'),
         style: ElevatedButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 14),
           textStyle: const TextStyle(
