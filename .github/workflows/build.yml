@@ -26,7 +26,7 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.0'
+          flutter-version: '3.29.0'
           channel: 'stable'
           cache: true
 
@@ -54,26 +54,28 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.0'
+          flutter-version: '3.29.0'
           channel: 'stable'
           cache: true
 
       - name: Setup local.properties
         run: |
-          FLUTTER_SDK="$(flutter --version --machine 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('flutterRoot',''))" || dirname $(dirname $(realpath $(which flutter))))"
-          echo "flutter.sdk=${FLUTTER_SDK}" > android/local.properties
-          echo "sdk.dir=${ANDROID_HOME}" >> android/local.properties
+          FLUTTER_BIN=$(which flutter)
+          FLUTTER_SDK=$(dirname $(dirname $FLUTTER_BIN))
+          echo "flutter.sdk=$FLUTTER_SDK" > android/local.properties
+          echo "sdk.dir=$ANDROID_HOME" >> android/local.properties
+          echo "=== local.properties ==="
           cat android/local.properties
 
-      - name: Flutter clean & pub get
+      - name: Flutter clean and pub get
         run: |
           flutter clean
           flutter pub get
 
-      - name: Build APK
+      - name: Build Release APK
         run: flutter build apk --release --no-tree-shake-icons
 
-      - name: Upload APK
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: App-Release-APK
