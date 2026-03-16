@@ -23,14 +23,17 @@ jobs:
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v4
+
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.24.0'
           channel: 'stable'
           cache: true
+
       - run: flutter config --enable-web
       - run: flutter pub get
       - run: flutter build web --release --base-href "/photo_editor_app/"
+
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
@@ -46,7 +49,7 @@ jobs:
 
       - uses: actions/setup-java@v4
         with:
-          distribution: 'zulu'
+          distribution: 'temurin'
           java-version: '17'
 
       - uses: subosito/flutter-action@v2
@@ -57,17 +60,23 @@ jobs:
 
       - name: Create local.properties
         run: |
-          echo "flutter.sdk=$(which flutter | sed 's|/bin/flutter||')" > android/local.properties
+          FLUTTER_PATH=$(dirname $(dirname $(which flutter)))
+          echo "flutter.sdk=$FLUTTER_PATH" > android/local.properties
           echo "flutter.buildMode=release" >> android/local.properties
           echo "flutter.versionName=2.0.0" >> android/local.properties
           echo "flutter.versionCode=1" >> android/local.properties
+          echo "sdk.dir=$ANDROID_HOME" >> android/local.properties
+
+      - name: Accept Android licenses
+        run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
       - run: flutter pub get
 
       - name: Build APK
         run: flutter build apk --release --no-tree-shake-icons
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
         with:
           name: App-Release-APK
           path: build/app/outputs/flutter-apk/app-release.apk
