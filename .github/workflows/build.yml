@@ -58,23 +58,39 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Create local.properties
+      - name: Setup local.properties
         run: |
-          FLUTTER_SDK="$(dirname $(dirname $(which flutter)))"
-          echo "flutter.sdk=${FLUTTER_SDK}" > android/local.properties
-          echo "sdk.dir=${ANDROID_HOME}" >> android/local.properties
-          echo "--- local.properties content ---"
+          FLUTTER_SDK="$(flutter --version --machine | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('flutterRoot',''))" 2>/dev/null || echo "")"
+          if [ -z "$FLUTTER_SDK" ]; then
+            FLUTTER_SDK="$(dirname $(dirname $(realpath $(which flutter))))"
+          fi
+          echo "Flutter SDK path: $FLUTTER_SDK"
+          printf "flutter.sdk=%s\nsdk.dir=%s\n" "$FLUTTER_SDK" "$ANDROID_HOME" > android/local.properties
           cat android/local.properties
 
-      - name: Flutter pub get
-        run: flutter pub get
+      - name: Flutter clean & pub get
+        run: |
+          flutter clean
+          flutter pub get
 
-      - name: Build APK
-        run: flutter build apk --release --no-tree-shake-icons --verbose
+      - name: Build APK via Gradle directly
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease --stacktrace
+
+      - name: Find and display APK
+        run: |
+          echo "=== Searching for APK files ==="
+          find . -name "*.apk" -type f 2>/dev/null
+          echo "==============================="
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: App-Release-APK
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: |
+            android/app/build/outputs/apk/release/*.apk
+            build/app/outputs/flutter-apk/*.apk
+          if-no-files-found: warn
           retention-days: 30
