@@ -863,7 +863,7 @@ class _PhotoEditorHomeState extends State<PhotoEditorHome> {
               ),
             ),
           ),
-          if (_textOverlays.isNotEmpty) ..[
+          if (_textOverlays.isNotEmpty) ...[
             const SizedBox(width: 10),
             IconButton(
               onPressed: () =>
